@@ -1,0 +1,5 @@
+.python-version
+.venv
+*.egg-info/
+build/
+uv.lock

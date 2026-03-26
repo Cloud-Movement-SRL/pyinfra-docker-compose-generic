@@ -1,0 +1,26 @@
+[project]
+name = "pyinfra-docker-compose-generic"
+version = "1.0.0"
+description = "git remote add origin https://github.com/Cloud-Movement-SRL/pyinfra-docker-compose-generic.git"
+readme = "README.md"
+license-files = [
+    "LICENSE"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyinfra>=3.7",
+]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = [
+    "uv_build>=0.11.2,<0.12"
+]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-include = [
+    "templates/**"
+]
