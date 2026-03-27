@@ -231,7 +231,7 @@ def configure_instances_env(ctx: Context):
         )
 
 
-def configure_instances_compose_override(ctx):
+def configure_instances_compose_override(ctx: Context):
     """Copies or the instance's `compose.override.yml` files. Any existing compose override files are overwritten."""
 
     for instance in ctx.instances:
