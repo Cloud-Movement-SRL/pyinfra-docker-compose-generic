@@ -9,7 +9,6 @@ from pyinfra.api import deploy
 from pyinfra.facts.server import Home, User, Users
 from typing import Callable
 import os
-import pprint
 import pyinfra_docker_compose_generic.steps as steps
 
 
