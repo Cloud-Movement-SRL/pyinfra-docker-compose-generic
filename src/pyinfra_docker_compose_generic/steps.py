@@ -30,7 +30,7 @@ def clone_git_repository(ctx: Context):
     """Clones the compose project's Git repository into `git_repo_dir_path`. The repo directory is created, if
     non-existent.
 
-    Note that this does _not_ check out the configured commitish (branch, tag, ...) form `git_repo_commitish`. Checking
+    Note that this does _not_ check out the configured commitish (branch, tag, ...) from `git_repo_commitish`. Checking
     out the configured commitish is part of :py:func:`create_instances`."""
 
     git.repo(
@@ -82,7 +82,7 @@ def create_instances(ctx: Context):
             mode=instance.instance_dir_mode,
         )
 
-    # Fix the repository's .git/worktree ownership, which is assigned to `root:root`` because of sudo (but should be
+    # Fix the repository's .git/worktree ownership, which is assigned to `root:root` because of sudo (but should be
     # `<ctx.work_dir_user>:<ctx.work_dir_group>`).
     #
     # See https://github.com/pyinfra-dev/pyinfra/issues/1626
@@ -178,8 +178,8 @@ def configure_instances_env(ctx: Context):
                 ],
             )
 
-        # Depending on whether `env_base_file_path` was set, this will either change the the previously copied file's
-        # owner, or create an empty file otherwise.
+        # Depending on whether `env_base_file_path` was set, this will either change the previously copied file's owner,
+        # or create an empty file otherwise.
         files.file(
             name=_format_name(ctx, "Touch .env file", instance.instance_name),
             path=instance.env_file_path,
