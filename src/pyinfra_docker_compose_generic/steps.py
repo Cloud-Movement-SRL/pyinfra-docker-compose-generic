@@ -272,7 +272,7 @@ def configure_instances_compose_override(ctx):
                     ctx, "Copy Docker Compose override file", instance.instance_name
                 ),
                 commands=[
-                    f"cp '{instance.compose_override_file_source_path}' '{instance.compose_override_file_path},'"
+                    f"cp '{instance.compose_override_file_source_path}' '{instance.compose_override_file_path}'"
                 ],
             )
 
