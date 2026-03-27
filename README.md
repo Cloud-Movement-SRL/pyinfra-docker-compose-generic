@@ -4,7 +4,7 @@ Provides a generic [pyinfra](https://github.com/pyinfra-dev/pyinfra) deploy for 
 
 ## Synopsis
 
-pyinfra-docker-compose-generic allows for deployments of Docker Compose projects, i.e. projects which come with a
+pyinfra-docker-compose-generic allows for deployments of Docker Compose projects, i.e., projects that come with a
 `compose.yml` file in their Git repository. We'll refer to them as _compose projects_ henceforth.
 
 Upon execution, pyinfra-docker-compose-generic
@@ -127,7 +127,7 @@ At the host data's top level, a dict under `docker_compose_generic` holds all co
 
 Below, a config entry (`<compose project key>`) per compose project is expected. Because this module is a generic
 deploy that doesn't know the compose project's name, the config key name may be set arbitrarily. However, the name
-must be valid directory name on the target host.
+must be a valid directory name on the target host.
 
 The name given in host data has to be passed to the deploy function as an argument, i.e. as
 `deploy_docker_compose_generic("<compose project key>")`.
@@ -159,8 +159,8 @@ Every instance is configured by an individual `.env` file, which is either copie
 `env_base_file_source_path` (by default a relative file path to the Git repository root), or created as an empty file if
 no base file was specified.
 
-Regardless its origin, the `.env` file is populated from the optional `env` entry for given instance, which is a dict of
-key-value-pairs that are converted verbatim into key-value-pairs within the `.env` file.
+Regardless of its origin, the `.env` file is populated from the optional `env` entry for given instance, which is a dict
+of key-value-pairs that are converted into key-value-pairs within the `.env` file.
 
 Entries in `env` with a value of `None` cause the entry within the `.env` file to be commented out – although this has
 an effect only if `env_base_file_path` is used. If the value is a string, the string will be interpolated, with the only
@@ -174,8 +174,8 @@ When none of the above env-configurations are supplied, the `.env` file is still
 > File permissions for `.env` are set to `0640` by default. To change, supply a custom value for `env_file_mode` on
 > compose project or instance level.
 
-If `compose_override_file_source_path` is given (by default an absolute file path the _control_ host), this file will be
-used in place of the default `compose.override.yml` for given instance (on the _target_ host).
+If `compose_override_file_source_path` is given (by default an absolute file path on the _control_ host), this file will
+be used in place of the default `compose.override.yml` for given instance (on the _target_ host).
 
 Any additional keys may be added to the instance for configuration of custom deploys – these are ignored by
 `deploy_docker_compose_generic()`.
