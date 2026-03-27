@@ -142,7 +142,7 @@ def configure_instances_env(ctx: Context):
 
         if (
             instance.env_base_file_source_path is not None
-            and instance.env_base_file_source == Source.LOCAL.value
+            and instance.env_base_file_source is Source.LOCAL
         ):
             files.template(
                 name=_format_name(ctx, "Upload .env base file", instance.instance_name),
@@ -164,12 +164,12 @@ def configure_instances_env(ctx: Context):
         #     ),
         #     src=env_base_file_path_resolved,
         #     dest=instance_env_file_path,
-        #     _if= instance.env_base_file_path is not None and instance.env_base_file_source != Source.LOCAL.value,
+        #     _if= instance.env_base_file_path is not None and instance.env_base_file_source is not Source.LOCAL.value,
         # )
 
         if (
             instance.env_base_file_path is not None
-            and instance.env_base_file_source != Source.LOCAL.value
+            and instance.env_base_file_source is not Source.LOCAL
         ):
             server.shell(
                 name=_format_name(ctx, "Copy .env base file", instance.instance_name),
