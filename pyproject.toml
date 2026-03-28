@@ -1,6 +1,6 @@
 [project]
 name = "pyinfra-docker-compose-generic"
-version = "1.0.0"
+version = "1.dev1"
 description = "Provides a generic pyinfra deploy for Docker Compose projects."
 readme = "README.md"
 license-files = [

@@ -1,6 +1,7 @@
 from typing import Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Callable
 
 
 class Source(Enum):
@@ -31,6 +32,7 @@ class Instance:
     instance_dir_path: str = None
     instance_dir_user: str = None
     instance_name: str = None
+    skip_operations: list[str | Callable] = None
 
 
 @dataclass
@@ -45,3 +47,4 @@ class Context:
     work_dir_mode: str | int = None
     work_dir_path: str = None
     work_dir_user: str = None
+    skip_operations: list[str | Callable] = None

@@ -1,22 +1,24 @@
+from dataclasses import dataclass
 from pyinfra import host
 from pyinfra_docker_compose_generic.context import Context, Instance, Source
-from pyinfra_docker_compose_generic.util import (
-    assert_config,
-    compose_project_data,
-    instance_data,
-)
+from pyinfra_docker_compose_generic.util import as_list, assert_config, compose_project_data, instance_data, to_string_list
 from pyinfra.api import deploy
 from pyinfra.facts.server import Home, User, Users
 from typing import Callable
 import os
-import pyinfra_docker_compose_generic.steps as steps
+import pyinfra_docker_compose_generic.operations as operations
+
+
+@dataclass
+class Operation:
+    function: Callable = None
+    name: str = None
+    per_instance: bool = None
 
 
 def default_build_context(compose_project_key: str, instance_context_builder: Callable):
-    """Creates the runtime context based on host data.
+    """Creates the runtime context based on host data."""
 
-    For the working directory, defaults to a directory named with the value of `compose_project_key` within the user's home directory.
-    """
     ctx = Context()
 
     ctx.compose_project_key = compose_project_key
@@ -54,7 +56,8 @@ def default_build_context(compose_project_key: str, instance_context_builder: Ca
     ctx.work_dir_mode = compose_project_data(ctx, "work_dir_mode")
 
     ctx.git_repo_dir_path = compose_project_data(
-        ctx, "git_repo_dir_path", os.path.join(ctx.work_dir_path, "compose-project")
+        ctx, "git_repo_dir_path", os.path.join(
+            ctx.work_dir_path, "compose-project")
     )
 
     ctx.git_repo_url = compose_project_data(ctx, "git_repo_url")
@@ -75,11 +78,14 @@ def default_build_context(compose_project_key: str, instance_context_builder: Ca
 
     ctx.instances = instances
 
+    ctx.skip_operations = as_list(compose_project_data(ctx, "skip_operations"))
+
     return ctx
 
 
 def default_build_instance_context(ctx: Context, instance_name: str):
     """Creates the runtime context for given instance based on host data."""
+
     users = host.get_fact(Users)
     user = host.get_fact(User)
     group = users[ctx.work_dir_user]["group"]
@@ -109,6 +115,7 @@ def default_build_instance_context(ctx: Context, instance_name: str):
     instance.compose_override_file_group = instance_data(
         ctx, instance_name, "compose_override_file_group", group
     )
+
     instance.compose_override_file_mode = instance_data(
         ctx, instance_name, "compose_override_file_mode"
     )
@@ -162,45 +169,98 @@ def default_build_instance_context(ctx: Context, instance_name: str):
             instance.instance_dir_path, instance.env_base_file_source_path
         )
 
-    instance.env_file_group = instance_data(ctx, instance_name, "env_file_group", group)
-    instance.env_file_mode = instance_data(ctx, instance_name, "env_file_mode", "0640")
+    instance.env_file_group = instance_data(
+        ctx, instance_name, "env_file_group", group)
+
+    instance.env_file_mode = instance_data(
+        ctx, instance_name, "env_file_mode", "0640")
+
     instance.env_file_path = os.path.join(instance.instance_dir_path, ".env")
-    instance.env_file_user = instance_data(ctx, instance_name, "env_file_user", user)
+
+    instance.env_file_user = instance_data(
+        ctx, instance_name, "env_file_user", user)
+
     instance.env = instance_data(ctx, instance_name, "env", {})
+
     instance.git_repo_commitish = instance_data(
         ctx, instance_name, "git_repo_commitish"
     )
+
     instance.instance_dir_group = instance_data(
         ctx, instance_name, "instance_dir_group", group
     )
+
     instance.instance_dir_mode = instance_data(
         ctx, instance_name, "instance_dir_mode", "0750"
     )
+
     instance.instance_dir_user = instance_data(
         ctx, instance_name, "instance_dir_user", user
     )
 
+    instance.skip_operations = as_list(
+        instance_data(ctx, instance_name, "skip_operations"))
+
     return instance
+
+
+def default_build_operations(ctx: Context):
+    """Creates a list of operations to be run for given deploy."""
+
+    def create_operation(function: Callable, name: str = None, per_instance: bool = False):
+        operation = Operation()
+        operation.function = function
+        operation.name = name
+        operation.per_instance = per_instance
+
+        return operation
+
+    return [
+        create_operation(operations.create_working_directory,
+                         "Create working directory"),
+        create_operation(operations.clone_git_repository,
+                         "Clone Git repository"),
+        create_operation(operations.create_instances_directory,
+                         "Create instances directory"),
+        create_operation(operations.create_instance, "Create instance", True),
+        create_operation(operations.configure_instance_env,
+                         "Configure .env", True),
+        create_operation(operations.configure_instance_compose_override,
+                         "Configure compose.override.yml", True),
+        create_operation(operations.run_instance_pull, "Pull images", True),
+        create_operation(operations.run_instance_up, "Start instance", True),
+    ]
+
+
+def _not_skipped(step: Operation, source: Context | Instance):
+    """Determines if an operation should run, i.e. if it is not listed in `skip_operations`."""
+    return step.function.__name__ not in to_string_list(source.skip_operations)
 
 
 @deploy("Deploy Docker Compose")
 def deploy_docker_compose_generic(
     compose_project_key: str,
     project_key: str = "docker_compose_generic",
-    context_builder=default_build_context,
-    instance_context_builder=default_build_instance_context,
+    context_builder: Context = default_build_context,
+    instance_context_builder: Instance = default_build_instance_context,
+    operations_builder: list[Operation] = default_build_operations,
 ):
     """Deploys a Docker Compose enabled project."""
 
     assert_config(compose_project_key, project_key)
 
     ctx = context_builder(compose_project_key, instance_context_builder)
+    run_operations = operations_builder(ctx)
 
-    steps.create_working_directory(ctx)
-    steps.clone_git_repository(ctx)
-    steps.create_instances_directory(ctx)
-    steps.create_instances(ctx)
-    steps.configure_instances_env(ctx)
-    steps.configure_instances_compose_override(ctx)
-    steps.run_instances_pull(ctx)
-    steps.run_instances_up(ctx)
+    for operation in run_operations:
+        if _not_skipped(operation, ctx):
+            if operation.per_instance:
+                for instance in ctx.instances:
+                    if _not_skipped(operation, instance):
+                        name = operations._format_name(
+                            ctx, operation.name, instance)
+                        operation.function(
+                            ctx=ctx, name=name, instance=instance)
+            else:
+                name = operations._format_name(ctx, operation.name)
+                operation.function(ctx=ctx, name=name)

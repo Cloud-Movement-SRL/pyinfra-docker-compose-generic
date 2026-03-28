@@ -4,31 +4,16 @@ from pyinfra_docker_compose_generic.context import Context
 from typing import Any
 
 
-def compose_project_data(ctx: Context, key: str, default: Any = None, recursive=True):
-    """Resolves host data relative to `docker_compose_generic.{compose_project_key}`."""
-    data = (
-        host.data.get("docker_compose_generic", {})
-        .get(ctx.compose_project_key, {})
-        .get(key, None)
-    )
-
-    if data is None and recursive is True:
-        return host.data.get("docker_compose_generic", {}).get(key, default)
-
-    if data is None:
-        return default
-
-    return data
-
-
 def assert_config(compose_project_key: str, project_key: str):
     """Asserts that the configuration is present and valid."""
+
     _assert_config_exists(compose_project_key, project_key)
     _assert_config_valid(compose_project_key, project_key)
 
 
 def _assert_config_exists(compose_project_key: str, project_key: str):
     """Asserts that given compose project key exists in host data. Raises an error if no configuration is present."""
+
     if host.data.get(project_key) is None:
         raise ValueError(f"No host data for project key '{project_key}'")
 
@@ -49,7 +34,8 @@ def _assert_config_valid(compose_project_key: str, project_key: str):
         )
 
     instances = (
-        host.data.get(project_key).get(compose_project_key, {}).get("instances", {})
+        host.data.get(project_key).get(
+            compose_project_key, {}).get("instances", {})
     )
 
     if len(instances) == 0:
@@ -62,6 +48,24 @@ def docker_compose_generic_data(key: str, default: Any = None):
     """Resolves host data relative to `docker_compose_generic`."""
 
     return host.data.get("docker_compose_generic", {}).get(key, default)
+
+
+def compose_project_data(ctx: Context, key: str, default: Any = None, recursive=True):
+    """Resolves host data relative to `docker_compose_generic.{compose_project_key}`."""
+
+    data = (
+        host.data.get("docker_compose_generic", {})
+        .get(ctx.compose_project_key, {})
+        .get(key, None)
+    )
+
+    if data is None and recursive is True:
+        return host.data.get("docker_compose_generic", {}).get(key, default)
+
+    if data is None:
+        return default
+
+    return data
 
 
 def instance_data(
@@ -91,3 +95,15 @@ def instance_data(
         return default
 
     return data
+
+
+def as_list(item: Any | list[Any]):
+    """Returns the list itself, a single item as a list or an empty list."""
+
+    return [] if item is None else (item if isinstance(item, list) else [item])
+
+
+def to_string_list(list: list[Any]):
+    """Converts the list's callable items to their string representations"""
+
+    return [item.__name__ if callable(item) else str(item) for item in list]
