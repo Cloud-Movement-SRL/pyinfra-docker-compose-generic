@@ -1,7 +1,7 @@
 [project]
 name = "pyinfra-docker-compose-generic"
 version = "1.0.0"
-description = "git remote add origin https://github.com/Cloud-Movement-SRL/pyinfra-docker-compose-generic.git"
+description = "Provides a generic pyinfra deploy for Docker Compose projects."
 readme = "README.md"
 license-files = [
     "LICENSE"
