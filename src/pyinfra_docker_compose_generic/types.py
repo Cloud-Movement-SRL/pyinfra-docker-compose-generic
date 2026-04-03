@@ -1,10 +1,12 @@
-from typing import Any
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable
+from types import FunctionType
+from typing import Any
 
 
 class Source(Enum):
+    """Denotes the source of a file."""
+
     LOCAL = "local"
     REMOTE = "remote"
     COMPOSE_PROJECT = "compose-project"
@@ -12,6 +14,8 @@ class Source(Enum):
 
 @dataclass
 class Instance:
+    """Holds the runtime context for an instance of a compose project deploy."""
+
     compose_override_file_group: str = None
     compose_override_file_mode: str = None
     compose_override_file_path: str = None
@@ -31,12 +35,14 @@ class Instance:
     instance_dir_mode: str = None
     instance_dir_path: str = None
     instance_dir_user: str = None
-    instance_name: str = None
-    skip_operations: list[str | Callable] = None
+    name: str = None
 
 
 @dataclass
 class Context:
+    """Holds the runtime context for a compose project deploy."""
+
+    project_key: str = None
     compose_project_key: str = None
     git_repo_commitish: str = None
     git_repo_dir_path: str = None
@@ -47,4 +53,20 @@ class Context:
     work_dir_mode: str | int = None
     work_dir_path: str = None
     work_dir_user: str = None
-    skip_operations: list[str | Callable] = None
+
+
+@dataclass
+class Operation:
+    """Encapsulates the normalized configuration of an operation."""
+
+    function: FunctionType = None
+    name: str = None
+    per_instance: bool = None
+    instance: Instance | None = None
+
+
+class Position(Enum):
+    """Denotes the order for inserted operation."""
+
+    AFTER = "after"
+    BEFORE = "before"

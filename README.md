@@ -19,7 +19,7 @@ Supports multiple compose projects per host, of which each may have multiple ins
 ## Quick Start
 
 For an example, see the pyinfra inventory and deploy files shown below to deploy
-[Uptime Kuma](https://github.com/louislam/uptime-kuma) on host `localhost`, along with basic project setup:
+[Uptime Kuma](https://github.com/louislam/uptime-kuma) on host `localhost`:
 
 ```shell
 # Shell: project setup
@@ -125,11 +125,11 @@ hosts = [
 
 At the host data's top level, a dict under `docker_compose_generic` holds all configuration.
 
-Below, a config entry (`<compose project key>`) per compose project is expected. Because this module is a generic
-deploy that doesn't know the compose project's name, the config key name may be set arbitrarily. However, the name
-must be a valid directory name on the target host.
+Below, a config entry (`<compose project key>`) per compose project is expected. Compose projects keys name may be named
+arbitrarily, however, the name must be a valid directory name on the target host, as this key is used in constructed
+paths.
 
-The name given in host data has to be passed to the deploy function as an argument, i.e. as
+The compose project key in host data has to be passed to the deploy function as an argument, i.e. as
 `deploy_docker_compose_generic("<compose project key>")`.
 
 Each compose project config entry is expected to have a dict of instances, which allow to deploy the same compose
@@ -137,7 +137,7 @@ project with stages or to achieve a multi-tenant setup. As with compose project 
 as long as those names are valid directory names on the target host and do not clash with an existing branch name, such
 as `main` or `master`.
 
-Based on given keys, pyinfra-docker-compose-generic creates a worktree copy of the configured Git repository per
+Based on these keys, pyinfra-docker-compose-generic creates a Git worktree copy of the configured Git repository per
 instance. By default, it resides under `/home/<ssh_user>/<compose project key>/instances/<instance name>` on the target
 host.
 
@@ -155,6 +155,8 @@ host.
 >
 > **An instance directory should not be deleted without prior review.**
 
+### Instance Configuration
+
 Every instance is configured by an individual `.env` file, which is either copied from the optional value of
 `env_base_file_source_path` (by default a relative file path to the Git repository root), or created as an empty file if
 no base file was specified.
@@ -167,14 +169,14 @@ an effect only if `env_base_file_path` is used. If the value is a string, the st
 variable available being `{instance_name}`. If the value is a function, the function is called with `instance_name` as
 its only argument. Other types are converted to string.
 
-When none of the above env-configurations are supplied, the `.env` file is still created but remains empty.
+When none of the above env-configurations is supplied, the `.env` file is still created but remains empty.
 
 > 🛈 Notice
 >
 > File permissions for `.env` are set to `0640` by default. To change, supply a custom value for `env_file_mode` on
 > compose project or instance level.
 
-If `compose_override_file_source_path` is given (by default an absolute file path on the _control_ host), this file will
+If `compose_override_file_source_path` is set (by default an absolute file path on the _control_ host), this file will
 be used in place of the default `compose.override.yml` for given instance (on the _target_ host).
 
 Any additional keys may be added to the instance for configuration of custom deploys – these are ignored by
@@ -255,6 +257,126 @@ pyinfra-docker-compose-generic creates a directory layout as follows:
 
 With defaults, the above yields `/home/<ssh_user>/<compose project key>/compose-project` and
 `/home/<ssh_user>/<compose project key>/instances/<instance name>`.
+
+### Operations Configuration
+
+To allow for customization and extension, `deploy_docker_compose_generic()`'s default set of operations can be
+configured, i.e. default operations can be removed and custom operations can be added.
+
+A dict named `operations` under the compose project's configuration or the instance configuration alters the deploy's
+operation set. The configuration is applied in the order of _remove_ then _add_, to allow for replacement of operations,
+with configuration from deeper levels taking precedence.
+
+Operations that are listed under `remove` won't be run for given deploy. (They are essentially skipped.)
+
+Operations that are listed under `add` are added for given deploy. Their position may be specified using `position`
+and `relative_to`. If neither is explicitly set, the operation will be appended.
+
+Any added operation on compose project level may be configured to run per instance rather than once per compose project,
+by setting `per_instance` to `True`. Added operations on instance level are implicitly considered per instance.
+
+Added operations are passed keyword arguments; their signature should match `(ctx: Context)` or
+`(ctx: Context, instance: Instance)`, depending on the value of `per_instance`.
+
+Both the `add` and `remove` configurations assume a function that is annotated with pyinfra's `@operation`, preferably
+linked directly as a `FunctionType` from the inventory. Alternatively, it may be specified as a string, matching the
+operation's function name.
+
+Moreover, single value configurations are auto-boxed into a single item list.
+
+```python
+from pyinfra_docker_compose_generic.operations import configure_instance_env, run_instance_pull, run_instance_up
+from my_module import copy_file
+
+hosts = [
+    (
+        "example.com",
+        {
+            "docker_compose_generic": {
+                "foo": {
+                    "operations": {
+                        "remove": [                                         # Removes (skips) `run_instance_pull` and `run_instance_up`, for all instances of `foo`
+                            run_instance_pull,
+                            run_instance_up,
+                        ],
+                        "add": {                                            # Adds an operation for all instances of `foo` (auto-boxed into a list)
+                            "position": "before",                           # Specifying `position` as `before` without specifying `relative_to` prepends the operation at position 0
+                            "operation": "print_config",                    # Assumes a function within the current scope (sys.modules) exists by this name
+                            "per_instance": True                            # Adds this operation per instance (`production` and `dev`)
+                        },
+                    },
+                    "instances": {
+                        "production": {
+                            "operations": {
+                                "remove": [                                 # Skips .env related operations for `production` instance of `foo` (using a string array)
+                                    "configure_instance_env",
+                                ],
+                            },
+                        },
+                        "dev": {
+                            "operations": {
+                                "add": [
+                                    "insert": "after",                      # Places this operation after the operation referenced in `postion`
+                                    "operation": copy_file,                 # References the operation to be added as a Python function (see import at top)
+                                    "position": configure_instance_env,     # Specifies the relative postion for the insertion from `insert`
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    ),
+]
+```
+
+In addition to configuration based customization, `deploy_docker_compose_generic()` allows for programmatic
+configuration through a custom operations builder. Its `operations_builder` parameter takes a function with the
+signature `(ctx: Context) -> list[Operation]`, using `default_operations_builder` as its preset.
+
+All operations are passed the `Context`, a dataclass object that contains direct and derived values from host data found
+under `docker_compose_generic` (or a custom value from argument `project_key`). The compose project context (`Context`)
+and instance contexts (`Instance`) are constructed by `context_builder` and `instance_context_builder`, which use
+`default_context_builder` and `default_instance_context_builder` respectively.
+
+As an example, consider the code below to append an operation programmatically, using a wrapper function:
+
+```python
+from pyinfra_docker_compose_generic import deploy_docker_compose_generic
+from pyinfra_docker_compose_generic.builders import default_operations_builder
+from pyinfra_docker_compose_generic.types import Context, Instance
+from pyinfra_docker_compose_generic.util import create_operation
+from pyinfra.api import deploy, operation
+from pyinfra.operations import files
+
+
+@operation()
+def my_operation(ctx: Context, instance: Instance):
+    """Sample operation assuming files.put() to upload a custom file."""
+    yield from files.put._inner(src="...", dest=)
+
+
+def my_operations_builder(ctx: Context):
+    """Sample wrapper function around the default operations builder."""
+    operations = default_operations_builder(ctx)
+    append_operation = create_operation(ctx, my_operation, "My Operation", True)
+    operations.append(append_operation)
+
+    return operations
+
+
+@deploy("My Deploy")
+def my_deploy():
+    """Sample customized deploy."""
+    deploy_docker_compose_generic(compose_project_key="my-compose-project", operations_builder=my_operations_builder)
+
+
+my_deploy()
+
+```
+
+`context_builder` and `instance_context_builder` may be wrapped likewise.
+
 
 ## Known Issues and Limitations
 

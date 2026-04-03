@@ -1,21 +1,7 @@
-from pyinfra_docker_compose_generic.context import Context, Instance, Source
+from .types import Context, Instance, Source
 from pyinfra.api import operation
 from pyinfra.operations import files, git, server
 import os
-
-
-def _format_name(ctx: Context, message: str, instance: Instance | None = None):
-    """Formats an operation's name to include the compose project key and optionally instance name. Returns a string in
-    the format of `<compose project key> > <message>` or `<compose project key> > <instance name> > <message>`.
-    """
-
-    return " > ".join(
-        filter(
-            lambda item: item is not None,
-            [ctx.compose_project_key,
-                None if instance is None else instance.instance_name, message],
-        )
-    )
 
 
 @operation()
@@ -126,7 +112,7 @@ def configure_instance_env(ctx: Context, instance: Instance):
             user=instance.env_file_user,
             group=instance.env_file_group,
             mode=instance.env_file_mode,
-            instance_name=instance.instance_name,
+            instance_name=instance.name,
             ctx=ctx,
         )
 
@@ -166,11 +152,10 @@ def configure_instance_env(ctx: Context, instance: Instance):
         if value is not None:
             # Handle string value (with interpolation of `instance_name`).
             if isinstance(value, str):
-                value_resolved = value.format(
-                    instance_name=instance.instance_name)
+                value_resolved = value.format(instance_name=instance.name)
             # Handle function value (with argument `instance_name`).
             elif callable(value):
-                value_resolved = value(instance.instance_name)
+                value_resolved = value(instance.name)
             # Handle all other values (which will implicitely be converted to string).
             else:
                 value_resolved = value
@@ -214,7 +199,7 @@ def configure_instance_compose_override(ctx: Context, instance: Instance):
             user=instance.compose_override_file_user,
             group=instance.compose_override_file_group,
             mode=instance.compose_override_file_mode,
-            instance_name=instance.instance_name,
+            instance_name=instance.name,
             ctx=ctx,
         )
 
